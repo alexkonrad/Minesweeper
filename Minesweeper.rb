@@ -2,53 +2,70 @@ require 'yaml'
 require 'time'
 
 class Game
-  attr_accessor :board
-
   def initialize
     @board = Board.new
   end
 
   def play
-    # pregame
-    over = false
 
-    until over
-      puts "\n"
-      @board.display
-      puts "\n"
-      puts "Enter F to flag a tile or R to reveal a tile.
-        Then enter the row number and column (1-9). Enter S
-        to save."
+    loop do
+      turn_result = turn
+      break if turn_result == :Q
 
-      turn_result = nil
-
-      letter, row, column = gets.chomp.downcase.split("")
-      row, column = row.to_i - 1, column.to_i - 1
-      case letter
-      when "f"
-        @board.board[row][column].flag
-      when "r"
-        turn_result = @board.reveal(row,column)
-        over = @board.won?
-        puts "You won!" if over
-      when "s"
-        puts "Game saved."
-        save
+      if won?
+        puts "You won!"
         break
-      when "l"
-        load
-      else
-        puts "Try again!"
+      elsif lost?(turn_result)
+        puts "You lost"
+        @board.display_bombs
+        break
       end
-
-      if turn_result == :B
-        over = true
-        puts "Game over"
-      end
-
     end
 
-    @board.display_bombs if over
+  end
+
+  def lost?(turn_result)
+    turn_result == :B
+  end
+
+  def won?
+    @board.won?
+  end
+
+  def turn
+    @board.display
+    puts "\nEnter F to flag a tile or R to reveal a tile.
+      Then enter the row number and column (1-9). Enter S
+      to save."
+
+    letter, row, column = gets.chomp.downcase.split("")
+    row, column = row.to_i - 1, column.to_i - 1
+
+    parse_input(letter, row, column)
+  end
+
+  def parse_input(letter, row, column)
+    turn_result = nil
+
+    case letter
+    when "f"
+      @board.board[row][column].flag
+    when "r"
+      turn_result = @board.reveal(row,column)
+    when "s"
+      puts "Game saved. Goodbye."
+      save
+      turn_result = :Q
+    when "l"
+      load
+    when "q"
+      puts "Goodbye"
+      turn_result = :Q
+    else
+      puts "Try again!"
+    end
+
+    turn_result
   end
 
   def load(filename = nil)
@@ -67,12 +84,13 @@ class Game
   end
 
   private
-  def save
-    filename = Time.now.strftime("%y%m%d%H%M%S-minesweeper.txt")
-    File.open(filename, 'w') do |file|
-      file.puts(@board.to_yaml)
+
+    def save
+      filename = Time.now.strftime("%y%m%d%H%M%S-minesweeper.txt")
+      File.open(filename, 'w') do |file|
+        file.puts(@board.to_yaml)
+      end
     end
-  end
 end
 
 class Tile
@@ -102,7 +120,6 @@ class Tile
 
   def flag
     @state == :F ? @state = :* : @state = :F
-
     nil
   end
 end
