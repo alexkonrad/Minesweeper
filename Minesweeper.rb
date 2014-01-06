@@ -2,8 +2,12 @@ require 'yaml'
 require 'time'
 
 class Game
+  attr_accessor :board
+
   def initialize
     @board = Board.new
+
+    nil
   end
 
   def play
@@ -11,7 +15,9 @@ class Game
     over = false
 
     until over
+      puts "\n"
       @board.display
+      puts "\n"
       puts "Enter F to flag a tile or R to reveal a tile.
         Then enter the row number and column (0-9). Enter S
         to save."
@@ -24,7 +30,7 @@ class Game
       when "f"
         @board.board[row][column].flag
       when "r"
-        turn_result = @board.board[row][column].reveal
+        turn_result = @board.reveal(row,column)
         over = @board.won?
         puts "You won!" if over
       when "s"
@@ -84,6 +90,7 @@ class Tile
     else
       @adj_bombs == 0 ? @state = :_ : @state = @adj_bombs unless flagged?
     end
+    @state
   end
 
   def flag
@@ -95,11 +102,25 @@ end
 
 class Board
   BOMBS_COUNT = 15
+  NEIGHBORS = [[-1, -1], [-1, 0], [-1, 1], [0, -1],
+                  [0, 1], [1, -1], [1, 0], [1, 1]]
 
   attr_accessor :board
 
   def initialize
     @board = make_board
+  end
+
+  def reveal(row, col)
+    turn_result = @board[row][col].reveal
+    if turn_result == :_
+      NEIGHBORS.each do |neighbor|
+        n_row, n_col = row + neighbor[0], col + neighbor[1]
+        next unless (0..8).include?(n_row) && (0..8).include?(n_col)
+        next unless @board[n_row][n_col].state == :*
+        self.reveal(n_row,n_col)
+      end
+    end
   end
 
   def won?
@@ -116,8 +137,8 @@ class Board
       row.map do |cell|
         cell.flagged? ? :F : cell.state
       end.join(" ")
-    end.join("\n")
-    puts view
+    end.join("\n\t\t")
+    puts "\t\t" + view
   end
 
   def display_bombs
@@ -157,11 +178,9 @@ class Board
   end
 
   def num_adj_bombs(bomb_coords, coord)
-    neighbors = [[-1, -1], [-1, 0], [-1, 1], [0, -1],
-                  [0, 1], [1, -1], [1, 0], [1, 1]]
     adj_bombs = 0
 
-    neighbors.each do |neighbor|
+    NEIGHBORS.each do |neighbor|
       bomb_coords.each do |bomb_coord|
         cell = [neighbor[0] + bomb_coord[0], neighbor[1] + bomb_coord[1]]
         adj_bombs += 1 if cell == coord
