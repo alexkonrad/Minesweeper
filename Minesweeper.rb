@@ -4,24 +4,42 @@ end
 class Tile
   attr_accessor :state, :adj_bombs, :has_bomb
 
-  def initialize(state, has_bomb)
+  def initialize(state, has_bomb, adj_bombs)
     @state, @has_bomb = state, has_bomb
+    @adj_bombs = adj_bombs
   end
 
+  def has_bomb?
+    @has_bomb
+  end
+
+  def reveal
+
+  end
 end
 
 class Board
   BOMBS_COUNT = 15
 
-  attr_accessor :board, :bomb_coords
+  attr_accessor :board
 
   def initialize
-    @bomb_coords = bomb_coord_array
-    @board = generate
+    @board = make_board
+    display
   end
 
-  def display
-    @board.map{|i| i.map {|j| j.state } }
+  def make_board
+    bomb_coords = bomb_coord_array
+    board = Array.new(9) { Array.new(9, nil) }
+
+    board.each_index do |i|
+      board[0].each_index do |j|
+        board[i][j] = Tile.new(:*,
+          needs_bomb?(bomb_coords, [i,j]),
+          num_adj_bombs(bomb_coords,[i,j]))
+      end
+    end
+    board
   end
 
   def bomb_coord_array
@@ -35,23 +53,33 @@ class Board
     bomb_coords
   end
 
-  def needs_bomb?(coord)
-    @bomb_coords.include?(coord)
+  def needs_bomb?(bomb_coords, coord)
+    bomb_coords.include?(coord)
   end
 
-  def generate
-    board = Array.new(9) { Array.new(9, nil) }
+  def num_adj_bombs(bomb_coords, coord)
+    neighbors = [[-1, -1], [-1, 0], [-1, 1], [0, -1],
+                  [0, 1], [1, -1], [1, 0], [1, 1]]
+    adj_bombs = 0
+    neighbors.each do |neighbor|
+      bomb_coords.each do |bomb_coord|
+        cell = [neighbor[0] + bomb_coord[0], neighbor[1] + bomb_coord[1]]
+        adj_bombs += 1 if cell == coord
+      end
+    end
+    adj_bombs
+  end
 
-    board.each_index do |i|
-      board[0].each_index do |j|
-        board[i][j] = Tile.new(:*, needs_bomb?([i, j]))
+  def display
+    @board.map do |row|
+      row.map do |cell|
+        cell.state
       end
     end
   end
 
-  def []=
+  def test_display
+    puts @board.map {|i| i.map {|j| j.has_bomb? ? "b" : j.adj_bombs }.join(" ") }.join("\n")
   end
 
-  def []
-  end
 end
