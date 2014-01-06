@@ -13,9 +13,15 @@ end
 class Board
   BOMBS_COUNT = 15
 
+  attr_accessor :board, :bomb_coords
+
   def initialize
-    @board = generate
     @bomb_coords = bomb_coord_array
+    @board = generate
+  end
+
+  def display
+    @board.map{|i| i.map {|j| j.state } }
   end
 
   def bomb_coord_array
@@ -30,14 +36,15 @@ class Board
   end
 
   def needs_bomb?(coord)
-    bomb_coords.include?(coord)
+    @bomb_coords.include?(coord)
   end
 
   def generate
     board = Array.new(9) { Array.new(9, nil) }
-    board.map.with_index do |row, i|
-      row.map.with_index do |cell, j|
-        Tile.new(, needs_bomb?([i, j])
+
+    board.each_index do |i|
+      board[0].each_index do |j|
+        board[i][j] = Tile.new(:*, needs_bomb?([i, j]))
       end
     end
   end
