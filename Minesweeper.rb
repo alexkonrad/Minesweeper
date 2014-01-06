@@ -1,4 +1,65 @@
+require 'yaml'
+require 'time'
+
 class Game
+  def initialize
+    @board = Board.new
+  end
+
+  def play
+    # pregame
+    over = false
+
+    until over
+      @board.display
+      puts "Enter F to flag a tile or R to reveal a tile.
+        Then enter the row number and column (0-9). Enter S
+        to save."
+
+      turn_result = nil
+
+      letter, row, column = gets.chomp.downcase.split("")
+      row, column = row.to_i, column.to_i
+      case letter
+      when "f"
+        @board.board[row][column].flag
+      when "r"
+        turn_result = @board.board[row][column].reveal
+        over = @board.won?
+        puts "You won!" if over
+      when "s"
+        puts "Game saved."
+        save
+        break
+      when "l"
+        puts "Enter filename:"
+        load(gets.chomp.downcase)
+      else
+        puts "Try again!"
+      end
+
+      if turn_result == :B
+        over = true
+        puts "Game over"
+      end
+
+    end
+
+    @board.display_bombs if over
+  end
+
+  private
+  def save
+    filename = Time.now.strftime("%y%m%d%H%M%S-minesweeper.txt")
+    File.open(filename, 'w') do |file|
+      file.puts(@board.to_yaml)
+    end
+  end
+
+  def load(filename)
+    file = File.read(filename)
+    @board = YAML::load(file)
+  end
 end
 
 class Tile
@@ -9,12 +70,26 @@ class Tile
     @adj_bombs = adj_bombs
   end
 
+  def flagged?
+    @state == :F
+  end
+
   def has_bomb?
     @has_bomb
   end
 
   def reveal
+    if has_bomb?
+      @state = :B
+    else
+      @adj_bombs == 0 ? @state = :_ : @state = @adj_bombs unless flagged?
+    end
+  end
 
+  def flag
+    @state == :F ? @state = :* : @state = :F
+
+    nil
   end
 end
 
@@ -25,8 +100,31 @@ class Board
 
   def initialize
     @board = make_board
-    display
   end
+
+  def won?
+    @board.each do |row|
+      row.each do |cell|
+        return false if cell.state == :*
+      end
+    end
+    true
+  end
+
+  def display
+    view = @board.map do |row|
+      row.map do |cell|
+        cell.flagged? ? :F : cell.state
+      end.join(" ")
+    end.join("\n")
+    puts view
+  end
+
+  def display_bombs
+    puts @board.map { |i| i.map {|j| j.has_bomb? ? "b" : j.adj_bombs }.join(" ") }.join("\n")
+  end
+
+  private
 
   def make_board
     bomb_coords = bomb_coord_array
@@ -39,6 +137,7 @@ class Board
           num_adj_bombs(bomb_coords,[i,j]))
       end
     end
+
     board
   end
 
@@ -61,25 +160,14 @@ class Board
     neighbors = [[-1, -1], [-1, 0], [-1, 1], [0, -1],
                   [0, 1], [1, -1], [1, 0], [1, 1]]
     adj_bombs = 0
+
     neighbors.each do |neighbor|
       bomb_coords.each do |bomb_coord|
         cell = [neighbor[0] + bomb_coord[0], neighbor[1] + bomb_coord[1]]
         adj_bombs += 1 if cell == coord
       end
     end
+
     adj_bombs
   end
-
-  def display
-    @board.map do |row|
-      row.map do |cell|
-        cell.state
-      end
-    end
-  end
-
-  def test_display
-    puts @board.map {|i| i.map {|j| j.has_bomb? ? "b" : j.adj_bombs }.join(" ") }.join("\n")
-  end
-
 end
