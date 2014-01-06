@@ -6,8 +6,6 @@ class Game
 
   def initialize
     @board = Board.new
-
-    nil
   end
 
   def play
@@ -19,13 +17,13 @@ class Game
       @board.display
       puts "\n"
       puts "Enter F to flag a tile or R to reveal a tile.
-        Then enter the row number and column (0-9). Enter S
+        Then enter the row number and column (1-9). Enter S
         to save."
 
       turn_result = nil
 
       letter, row, column = gets.chomp.downcase.split("")
-      row, column = row.to_i, column.to_i
+      row, column = row.to_i - 1, column.to_i - 1
       case letter
       when "f"
         @board.board[row][column].flag
@@ -38,8 +36,7 @@ class Game
         save
         break
       when "l"
-        puts "Enter filename:"
-        load(gets.chomp.downcase)
+        load
       else
         puts "Try again!"
       end
@@ -54,17 +51,27 @@ class Game
     @board.display_bombs if over
   end
 
+  def load(filename = nil)
+    begin
+      if filename.nil?
+        puts "Enter filename:"
+        filename = gets.chomp.downcase
+      end
+      file = File.read(filename)
+      @board = YAML::load(file)
+    rescue
+      puts "File not found"
+      filename = nil
+      retry
+    end
+  end
+
   private
   def save
     filename = Time.now.strftime("%y%m%d%H%M%S-minesweeper.txt")
     File.open(filename, 'w') do |file|
       file.puts(@board.to_yaml)
     end
-  end
-
-  def load(filename)
-    file = File.read(filename)
-    @board = YAML::load(file)
   end
 end
 
@@ -121,6 +128,7 @@ class Board
         self.reveal(n_row,n_col)
       end
     end
+    turn_result
   end
 
   def won?
@@ -188,5 +196,22 @@ class Board
     end
 
     adj_bombs
+  end
+end
+
+if __FILE__ == $PROGRAM_NAME
+  # until ARGV.empty?
+  #   ARGV.pop
+  # end
+  # ARGV = []
+
+  unless ARGV.empty?
+    filename = ARGV.pop
+
+    game = Game.new
+    game.load(filename)
+    game.play
+  else
+    Game.new.play
   end
 end
