@@ -7,7 +7,6 @@ class Game
   end
 
   def play
-
     loop do
       turn_result = turn
       break if turn_result == :Q
@@ -21,51 +20,6 @@ class Game
         break
       end
     end
-
-  end
-
-  def lost?(turn_result)
-    turn_result == :B
-  end
-
-  def won?
-    @board.won?
-  end
-
-  def turn
-    @board.display
-    puts "\nEnter F to flag a tile or R to reveal a tile.
-      Then enter the row number and column (1-9). Enter S
-      to save."
-
-    letter, row, column = gets.chomp.downcase.split("")
-    row, column = row.to_i - 1, column.to_i - 1
-
-    parse_input(letter, row, column)
-  end
-
-  def parse_input(letter, row, column)
-    turn_result = nil
-
-    case letter
-    when "f"
-      @board.board[row][column].flag
-    when "r"
-      turn_result = @board.reveal(row,column)
-    when "s"
-      puts "Game saved. Goodbye."
-      save
-      turn_result = :Q
-    when "l"
-      load
-    when "q"
-      puts "Goodbye"
-      turn_result = :Q
-    else
-      puts "Try again!"
-    end
-
-    turn_result
   end
 
   def load(filename = nil)
@@ -85,16 +39,67 @@ class Game
 
   private
 
-    def save
-      filename = Time.now.strftime("%y%m%d%H%M%S-minesweeper.txt")
-      File.open(filename, 'w') do |file|
-        file.puts(@board.to_yaml)
-      end
+  def lost?(turn_result)
+    turn_result == :B
+  end
+
+  def won?
+    @board.won?
+  end
+
+  def turn
+    @board.display
+    puts "\nEnter F to flag a tile or R to reveal a tile.
+      Then enter the row number and column (1-9). Enter S
+      to save."
+
+    begin
+      letter, row, column = gets.chomp.downcase.split("")
+      row, column = row.to_i - 1, column.to_i - 1
+      raise unless row.between?(0,8) && column.between?(0,8)
+    rescue
+      puts "Row / Column numbers between 1 & 9!"
+      retry
     end
+
+    parse_input(letter, row, column)
+  end
+
+  def parse_input(letter, row, column)
+    turn_result = nil
+
+    case letter
+    when "f"
+      @board[row, column].flag
+    when "r"
+      turn_result = @board.reveal(row,column)
+    when "s"
+      puts "Game saved. Goodbye."
+      save
+      turn_result = :Q
+    when "l"
+      load
+    when "q"
+      puts "Goodbye"
+      turn_result = :Q
+    else
+      puts "Try again!"
+    end
+
+    turn_result
+  end
+
+  def save
+    filename = Time.now.strftime("%y%m%d%H%M%S-minesweeper.txt")
+    File.open(filename, 'w') do |file|
+      file.puts(@board.to_yaml)
+    end
+  end
 end
 
 class Tile
-  attr_accessor :state, :adj_bombs, :has_bomb
+  attr_accessor :state
+  attr_reader :has_bomb, :adj_bombs
 
   def initialize(state, has_bomb, adj_bombs)
     @state, @has_bomb = state, has_bomb
@@ -129,22 +134,31 @@ class Board
   NEIGHBORS = [[-1, -1], [-1, 0], [-1, 1], [0, -1],
                   [0, 1], [1, -1], [1, 0], [1, 1]]
 
-  attr_accessor :board
-
   def initialize
     @board = make_board
   end
 
+  def [](row, col)
+    @board[row][col]
+  end
+
+  def []=(row, col, obj)
+    @board[row][col] = obj
+  end
+
   def reveal(row, col)
-    turn_result = @board[row][col].reveal
+    turn_result = self[row, col].reveal
+
     if turn_result == :_
-      NEIGHBORS.each do |neighbor|
-        n_row, n_col = row + neighbor[0], col + neighbor[1]
-        next unless (0..8).include?(n_row) && (0..8).include?(n_col)
-        next unless @board[n_row][n_col].state == :*
-        self.reveal(n_row,n_col)
+      NEIGHBORS.each do |pos|
+        n_row, n_col = row + pos[0], col + pos[1]
+        next unless self[n_row, n_col].state == :* ||
+          (n_row.between?(0, 8) && n_col.between(0, 8))
+
+        reveal(n_row, n_col)
       end
     end
+
     turn_result
   end
 
@@ -154,6 +168,7 @@ class Board
         return false if cell.state == :*
       end
     end
+
     true
   end
 
@@ -167,7 +182,7 @@ class Board
   end
 
   def display_bombs
-    puts @board.map { |i| i.map {|j| j.has_bomb? ? "b" : j.adj_bombs }.join(" ") }.join("\n")
+    puts @board.map { |i| i.map {|j| j.has_bomb? ? "B" : j.adj_bombs }.join(" ") }.join("\n")
   end
 
   private
@@ -205,9 +220,9 @@ class Board
   def num_adj_bombs(bomb_coords, coord)
     adj_bombs = 0
 
-    NEIGHBORS.each do |neighbor|
+    NEIGHBORS.each do |pos|
       bomb_coords.each do |bomb_coord|
-        cell = [neighbor[0] + bomb_coord[0], neighbor[1] + bomb_coord[1]]
+        cell = [pos[0] + bomb_coord[0], pos[1] + bomb_coord[1]]
         adj_bombs += 1 if cell == coord
       end
     end
@@ -217,11 +232,6 @@ class Board
 end
 
 if __FILE__ == $PROGRAM_NAME
-  # until ARGV.empty?
-  #   ARGV.pop
-  # end
-  # ARGV = []
-
   unless ARGV.empty?
     filename = ARGV.pop
 
